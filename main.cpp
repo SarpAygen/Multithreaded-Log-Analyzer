@@ -77,19 +77,42 @@ int main() {
 
     int lineCount = 0;
     int malformedCount = 0;
+    int infoCount = 0;
+    int warnCount = 0;
+    int errorCount = 0;
+    std::string severityFilter = "";
 
     while (std::getline(logFile, line)) {
         ++lineCount;
         LogEntry entry;
 
         if (parseLogEntry(line, entry)) {
+            if (entry.severity == "INFO") {
+            ++infoCount;
+        } else if (entry.severity == "WARN") {
+            ++warnCount;
+        } else if (entry.severity == "ERROR") {
+            ++errorCount;
+        }
+
+        if (severityFilter.empty() || entry.severity == severityFilter) {
             std::cout << entry.severity << ": " << entry.message << '\n';
+        }
+
         } else {
             std::cerr << "Malformed entry on line " << lineCount << '\n';
             ++malformedCount;
         }
     }
 
+    if (logFile.bad()) {
+        std::cerr << "An error occurred while reading sample.log\n";
+        return 1;
+    }
+
+    std::cout << "INFO entries: " << infoCount << '\n';
+    std::cout << "WARN entries: " << warnCount << '\n';
+    std::cout << "ERROR entries: " << errorCount << '\n';
     std::cout << "Malformed entries: " << malformedCount << '\n';
 
     if (lineCount == 0) {
