@@ -1,3 +1,7 @@
 2026-11-05 14:32:10 INFO Application started
+this is not a valid log entry
 2026-11-05 14:32:12 ERROR Failed to open configuration file
 2026-11-05 14:32:15 WARN Request timed out
+2026-11-05 14:32:20 DEBUG Loading settings
+2026-1X-05 14:32:20 INFO Invalid month text
+2026-11-05 14:32:25 INFO
