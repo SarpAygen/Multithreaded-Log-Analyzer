@@ -80,7 +80,8 @@ int main() {
     int infoCount = 0;
     int warnCount = 0;
     int errorCount = 0;
-    std::string severityFilter = "";
+    std::string severityFilter = "WARN";
+    std::string keywordFilter = "";
 
     while (std::getline(logFile, line)) {
         ++lineCount;
@@ -95,7 +96,7 @@ int main() {
             ++errorCount;
         }
 
-        if (severityFilter.empty() || entry.severity == severityFilter) {
+        if ((severityFilter.empty() || entry.severity == severityFilter) && (keywordFilter.empty() || entry.message.find(keywordFilter) != std::string::npos)) {
             std::cout << entry.severity << ": " << entry.message << '\n';
         }
 
