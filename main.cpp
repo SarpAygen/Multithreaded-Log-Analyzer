@@ -72,13 +72,15 @@ bool parseLogEntry(const std::string& line, LogEntry& entry) {
 int main(int argc, char* argv[]) {
 
     if (argc == 2 && std::string(argv[1]) == "--help") {
-        std::cout << "Usage: log_analyzer.exe <log-file>\n";
+        std::cout << "Usage: log_analyzer.exe <log-file> [--severity LEVEL]\n";
         std::cout << "Read a log file and summarize valid entries and errors.\n";
+        std::cout << "  --severity LEVEL  Display only INFO, WARN, or ERROR entries.\n";
+        std::cout << "Summary counts include all valid entries, regardless of filters.\n";
         return 0;
     }
 
-    if (argc != 2) {
-        std::cerr << "Usage: log_analyzer.exe <log-file>\n";
+    if (argc != 2 && argc != 4) {
+        std::cerr << "Usage: log_analyzer.exe <log-file> [--severity LEVEL]\n";
         return 1;
     }
 
@@ -102,6 +104,22 @@ int main(int argc, char* argv[]) {
     std::string startTime = "";
     std::string endTime = "";
     std::map<std::string, int> errorCounts;
+
+    if (argc == 4) {
+        if (std::string(argv[2]) != "--severity") {
+            std::cerr << "Unknown option: " << argv[2] << '\n';
+            return 1;
+        }
+
+        severityFilter = argv[3];
+
+        if (severityFilter != "INFO" &&
+            severityFilter != "WARN" &&
+            severityFilter != "ERROR") {
+            std::cerr << "Severity must be INFO, WARN, or ERROR.\n";
+            return 1;
+        }
+    }
 
     if (!startTime.empty() && !endTime.empty() && startTime > endTime) {
         std::cerr << "Start time must not be after end time.\n";
