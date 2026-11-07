@@ -80,8 +80,15 @@ int main() {
     int infoCount = 0;
     int warnCount = 0;
     int errorCount = 0;
-    std::string severityFilter = "WARN";
+    std::string severityFilter = "";
     std::string keywordFilter = "";
+    std::string startTime = "";
+    std::string endTime = "";
+
+    if (!startTime.empty() && !endTime.empty() && startTime > endTime) {
+        std::cerr << "Start time must not be after end time.\n";
+        return 1;
+    }
 
     while (std::getline(logFile, line)) {
         ++lineCount;
@@ -96,7 +103,7 @@ int main() {
             ++errorCount;
         }
 
-        if ((severityFilter.empty() || entry.severity == severityFilter) && (keywordFilter.empty() || entry.message.find(keywordFilter) != std::string::npos)) {
+        if ((severityFilter.empty() || entry.severity == severityFilter) && (keywordFilter.empty() || entry.message.find(keywordFilter) != std::string::npos) && (startTime.empty() || entry.timestamp >= startTime) && (endTime.empty() || entry.timestamp <= endTime)) {
             std::cout << entry.severity << ": " << entry.message << '\n';
         }
 
