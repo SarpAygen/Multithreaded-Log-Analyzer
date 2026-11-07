@@ -72,14 +72,16 @@ bool parseLogEntry(const std::string& line, LogEntry& entry) {
 int main(int argc, char* argv[]) {
 
     if (argc == 2 && std::string(argv[1]) == "--help") {
-        std::cout << "Usage: log_analyzer.exe <log-file> [--severity LEVEL]\n";
+        std::cout << "Usage: log_analyzer.exe <log-file> [--severity LEVEL] [--keyword TEXT]\n";
         std::cout << "Read a log file and summarize valid entries and errors.\n";
         std::cout << "  --severity LEVEL  Display only INFO, WARN, or ERROR entries.\n";
         std::cout << "Summary counts include all valid entries, regardless of filters.\n";
+        std::cout << "  --keyword TEXT    Display messages containing TEXT (case-sensitive).\n";
+        std::cout << "                    Quote TEXT if it contains spaces.\n";
         return 0;
     }
 
-    if (argc != 2 && argc != 4) {
+    if (argc < 2 || argc % 2 != 0) {
         std::cerr << "Usage: log_analyzer.exe <log-file> [--severity LEVEL]\n";
         return 1;
     }
@@ -99,19 +101,24 @@ int main(int argc, char* argv[]) {
     int infoCount = 0;
     int warnCount = 0;
     int errorCount = 0;
-    std::string severityFilter = "";
     std::string keywordFilter = "";
+    std::string severityFilter = "";
     std::string startTime = "";
     std::string endTime = "";
     std::map<std::string, int> errorCounts;
 
-    if (argc == 4) {
-        if (std::string(argv[2]) != "--severity") {
-            std::cerr << "Unknown option: " << argv[2] << '\n';
+    for (int i = 2; i < argc; i += 2) {
+        if (std::string(argv[i]) == "--keyword") {
+            keywordFilter = argv[i + 1];
+            continue;
+        }
+
+        if (std::string(argv[i]) != "--severity") {
+            std::cerr << "Unknown option: " << argv[i] << '\n';
             return 1;
         }
 
-        severityFilter = argv[3];
+        severityFilter = argv[i + 1];
 
         if (severityFilter != "INFO" &&
             severityFilter != "WARN" &&
@@ -139,6 +146,7 @@ int main(int argc, char* argv[]) {
             ++errorCount;
             ++errorCounts[entry.message];
         }
+
 
         if ((severityFilter.empty() || entry.severity == severityFilter) && (keywordFilter.empty() || entry.message.find(keywordFilter) != std::string::npos) && (startTime.empty() || entry.timestamp >= startTime) && (endTime.empty() || entry.timestamp <= endTime)) {
             std::cout << entry.severity << ": " << entry.message << '\n';
