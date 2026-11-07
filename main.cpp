@@ -110,6 +110,20 @@ bool parseLogEntry(const std::string& line, LogEntry& entry) {
     return true;
 }
 
+bool processLine(const std::string& line,
+                 LogEntry& entry,
+                 AnalysisResult& result) {
+    ++result.lineCount;
+
+    if (!parseLogEntry(line, entry)) {
+        ++result.malformedCount;
+        return false;
+    }
+
+    recordEntry(entry, result);
+    return true;
+}
+
 std::string escapeCsv(const std::string& text) {
     std::string result = "\"";
 
@@ -212,21 +226,16 @@ int main(int argc, char* argv[]) {
     }
 
     while (std::getline(logFile, line)) {
-        ++result.lineCount;
         LogEntry entry;
 
-        if (!parseLogEntry(line, entry)) {
+        if (!processLine(line, entry, result)) {
             std::cerr << "Malformed entry on line " << result.lineCount << '\n';
-            ++result.malformedCount;
             continue;
         }
-
-        recordEntry(entry, result);
 
         if (matchesFilters(entry, filters)) {
             std::cout << entry.severity << ": " << entry.message << '\n';
         }
-
     }
 
     if (logFile.bad()) {
