@@ -2,6 +2,10 @@
 #include <fstream>
 #include <string>
 #include <sstream>
+#include <map>
+#include <vector>
+#include <utility>
+#include <algorithm>
 
 struct LogEntry {
     std::string timestamp;
@@ -84,6 +88,7 @@ int main() {
     std::string keywordFilter = "";
     std::string startTime = "";
     std::string endTime = "";
+    std::map<std::string, int> errorCounts;
 
     if (!startTime.empty() && !endTime.empty() && startTime > endTime) {
         std::cerr << "Start time must not be after end time.\n";
@@ -101,6 +106,7 @@ int main() {
             ++warnCount;
         } else if (entry.severity == "ERROR") {
             ++errorCount;
+            ++errorCounts[entry.message];
         }
 
         if ((severityFilter.empty() || entry.severity == severityFilter) && (keywordFilter.empty() || entry.message.find(keywordFilter) != std::string::npos) && (startTime.empty() || entry.timestamp >= startTime) && (endTime.empty() || entry.timestamp <= endTime)) {
@@ -122,6 +128,23 @@ int main() {
     std::cout << "WARN entries: " << warnCount << '\n';
     std::cout << "ERROR entries: " << errorCount << '\n';
     std::cout << "Malformed entries: " << malformedCount << '\n';
+
+    std::vector<std::pair<std::string, int>> sortedErrors(
+        errorCounts.begin(), errorCounts.end());
+
+    std::sort(sortedErrors.begin(), sortedErrors.end(),
+        [](const auto& a, const auto& b) {
+            if (a.second != b.second) {
+                return a.second > b.second;
+            }
+            return a.first < b.first;
+        });
+
+    std::cout << "Error message counts:\n";
+
+    for (const auto& item : sortedErrors) {
+        std::cout << item.second << " occurrence(s): " << item.first << '\n';
+    }
 
     if (lineCount == 0) {
         std::cout << "The log file is empty.\n";
