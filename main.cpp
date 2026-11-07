@@ -13,6 +13,41 @@ struct LogEntry {
     std::string message;
 };
 
+struct AnalysisResult {
+    int lineCount = 0;
+    int malformedCount = 0;
+    int infoCount = 0;
+    int warnCount = 0;
+    int errorCount = 0;
+    std::map<std::string, int> errorCounts;
+};
+
+struct FilterOptions {
+    std::string severity;
+    std::string keyword;
+    std::string startTime;
+    std::string endTime;
+};
+
+bool matchesFilters(const LogEntry& entry, const FilterOptions& filters) {
+    return (filters.severity.empty() || entry.severity == filters.severity) &&
+           (filters.keyword.empty() ||
+            entry.message.find(filters.keyword) != std::string::npos) &&
+           (filters.startTime.empty() || entry.timestamp >= filters.startTime) &&
+           (filters.endTime.empty() || entry.timestamp <= filters.endTime);
+}
+
+void recordEntry(const LogEntry& entry, AnalysisResult& result) {
+    if (entry.severity == "INFO") {
+        ++result.infoCount;
+    } else if (entry.severity == "WARN") {
+        ++result.warnCount;
+    } else if (entry.severity == "ERROR") {
+        ++result.errorCount;
+        ++result.errorCounts[entry.message];
+    }
+}
+
 bool isValidTimestamp(const std::string& timestamp) {
 
     if (timestamp.size() != 19) {
@@ -64,9 +99,7 @@ bool parseLogEntry(const std::string& line, LogEntry& entry) {
         return false;
     }
 
-    if (entry.severity != "INFO" &&
-        entry.severity != "WARN" &&
-        entry.severity != "ERROR") {
+    if (entry.severity != "INFO" && entry.severity != "WARN" && entry.severity != "ERROR") {
         return false;
     }
 
@@ -124,17 +157,9 @@ int main(int argc, char* argv[]) {
 
     std::string line;
 
-    int lineCount = 0;
-    int malformedCount = 0;
-    int infoCount = 0;
-    int warnCount = 0;
-    int errorCount = 0;
-    std::string keywordFilter = "";
-    std::string severityFilter = "";
-    std::string startTime = "";
-    std::string endTime = "";
+    AnalysisResult result;
+    FilterOptions filters;
     std::string csvPath = "";
-    std::map<std::string, int> errorCounts;
 
     for (int i = 2; i < argc; i += 2) {
 
@@ -150,17 +175,17 @@ int main(int argc, char* argv[]) {
         }
 
         if (std::string(argv[i]) == "--start") {
-            startTime = argv[i + 1];
+            filters.startTime = argv[i + 1];
             continue;
         }
 
         if (std::string(argv[i]) == "--end") {
-            endTime = argv[i + 1];
+            filters.endTime = argv[i + 1];
             continue;
         }
 
         if (std::string(argv[i]) == "--keyword") {
-            keywordFilter = argv[i + 1];
+            filters.keyword = argv[i + 1];
             continue;
         }
 
@@ -169,49 +194,39 @@ int main(int argc, char* argv[]) {
             return 1;
         }
 
-        severityFilter = argv[i + 1];
+        filters.severity = argv[i + 1];
 
-        if (severityFilter != "INFO" &&
-            severityFilter != "WARN" &&
-            severityFilter != "ERROR") {
+        if (filters.severity != "INFO" && filters.severity != "WARN" && filters.severity != "ERROR") {
             std::cerr << "Severity must be INFO, WARN, or ERROR.\n";
             return 1;
         }
     }
 
-    if ((!startTime.empty() && !isValidTimestamp(startTime)) ||
-        (!endTime.empty() && !isValidTimestamp(endTime))) {
+    if ((!filters.startTime.empty() && !isValidTimestamp(filters.startTime)) || (!filters.endTime.empty() && !isValidTimestamp(filters.endTime))) {
         std::cerr << "Time boundaries must use YYYY-MM-DD HH:MM:SS.\n";
         return 1;
     }
-    if (!startTime.empty() && !endTime.empty() && startTime > endTime) {
+    if (!filters.startTime.empty() && !filters.endTime.empty() && filters.startTime > filters.endTime) {
         std::cerr << "Start time must not be after end time.\n";
         return 1;
     }
 
     while (std::getline(logFile, line)) {
-        ++lineCount;
+        ++result.lineCount;
         LogEntry entry;
 
-        if (parseLogEntry(line, entry)) {
-            if (entry.severity == "INFO") {
-            ++infoCount;
-        } else if (entry.severity == "WARN") {
-            ++warnCount;
-        } else if (entry.severity == "ERROR") {
-            ++errorCount;
-            ++errorCounts[entry.message];
+        if (!parseLogEntry(line, entry)) {
+            std::cerr << "Malformed entry on line " << result.lineCount << '\n';
+            ++result.malformedCount;
+            continue;
         }
 
+        recordEntry(entry, result);
 
-        if ((severityFilter.empty() || entry.severity == severityFilter) && (keywordFilter.empty() || entry.message.find(keywordFilter) != std::string::npos) && (startTime.empty() || entry.timestamp >= startTime) && (endTime.empty() || entry.timestamp <= endTime)) {
+        if (matchesFilters(entry, filters)) {
             std::cout << entry.severity << ": " << entry.message << '\n';
         }
 
-        } else {
-            std::cerr << "Malformed entry on line " << lineCount << '\n';
-            ++malformedCount;
-        }
     }
 
     if (logFile.bad()) {
@@ -219,13 +234,13 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    std::cout << "INFO entries: " << infoCount << '\n';
-    std::cout << "WARN entries: " << warnCount << '\n';
-    std::cout << "ERROR entries: " << errorCount << '\n';
-    std::cout << "Malformed entries: " << malformedCount << '\n';
+    std::cout << "INFO entries: " << result.infoCount << '\n';
+    std::cout << "WARN entries: " << result.warnCount << '\n';
+    std::cout << "ERROR entries: " << result.errorCount << '\n';
+    std::cout << "Malformed entries: " << result.malformedCount << '\n';
 
     std::vector<std::pair<std::string, int>> sortedErrors(
-        errorCounts.begin(), errorCounts.end());
+        result.errorCounts.begin(), result.errorCounts.end());
 
     std::sort(sortedErrors.begin(), sortedErrors.end(),
         [](const auto& a, const auto& b) {
@@ -241,7 +256,7 @@ int main(int argc, char* argv[]) {
         std::cout << item.second << " occurrence(s): " << item.first << '\n';
     }
 
-    if (lineCount == 0) {
+    if (result.lineCount == 0) {
         std::cout << "The log file is empty.\n";
     }
 
@@ -254,10 +269,10 @@ int main(int argc, char* argv[]) {
         }
 
         csvFile << "type,label,count\n";
-        csvFile << "severity,INFO," << infoCount << '\n';
-        csvFile << "severity,WARN," << warnCount << '\n';
-        csvFile << "severity,ERROR," << errorCount << '\n';
-        csvFile << "input,malformed," << malformedCount << '\n';
+        csvFile << "severity,INFO," << result.infoCount << '\n';
+        csvFile << "severity,WARN," << result.warnCount << '\n';
+        csvFile << "severity,ERROR," << result.errorCount << '\n';
+        csvFile << "input,malformed," << result.malformedCount << '\n';
 
         for (const auto& item : sortedErrors) {
             csvFile << "error_message,"
