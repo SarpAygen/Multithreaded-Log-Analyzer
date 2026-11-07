@@ -77,10 +77,25 @@ bool parseLogEntry(const std::string& line, LogEntry& entry) {
     return true;
 }
 
+std::string escapeCsv(const std::string& text) {
+    std::string result = "\"";
+
+    for (char character : text) {
+        if (character == '"') {
+            result += '"';
+        }
+
+        result += character;
+    }
+
+    result += '"';
+    return result;
+}
+
 int main(int argc, char* argv[]) {
 
     if (argc == 2 && std::string(argv[1]) == "--help") {
-        std::cout << "Usage: log_analyzer.exe <log-file> [--severity LEVEL] [--keyword TEXT] [--start TIME] [--end TIME]\n";
+        std::cout << "Usage: log_analyzer.exe <log-file> [--severity LEVEL] [--keyword TEXT] [--start TIME] [--end TIME] [--csv PATH]\n";
         std::cout << "Read a log file and summarize valid entries and errors.\n";
         std::cout << "  --severity LEVEL  Display only INFO, WARN, or ERROR entries.\n";
         std::cout << "Summary counts include all valid entries, regardless of filters.\n";
@@ -89,11 +104,13 @@ int main(int argc, char* argv[]) {
         std::cout << "  --start TIME      Include entries at or after TIME.\n";
         std::cout << "  --end TIME        Include entries at or before TIME.\n";
         std::cout << "                    Format: \"YYYY-MM-DD HH:MM:SS\" (quote the value).\n";
+        std::cout << "  --csv PATH        Write all summary counts and ranked errors to CSV.\n";
+        std::cout << "                    Replaces the output file if it exists.\n";
         return 0;
     }
 
     if (argc < 2 || argc % 2 != 0) {
-        std::cerr << "Usage: log_analyzer.exe <log-file> [--severity LEVEL] [--keyword TEXT] [--start TIME] [--end TIME]\n";
+        std::cerr << "Usage: log_analyzer.exe <log-file> [--severity LEVEL] [--keyword TEXT] [--start TIME] [--end TIME] [--csv PATH]\n";
         return 1;
     }
 
@@ -116,9 +133,21 @@ int main(int argc, char* argv[]) {
     std::string severityFilter = "";
     std::string startTime = "";
     std::string endTime = "";
+    std::string csvPath = "";
     std::map<std::string, int> errorCounts;
 
     for (int i = 2; i < argc; i += 2) {
+
+        if (std::string(argv[i]) == "--csv") {
+            csvPath = argv[i + 1];
+
+            if (csvPath.empty()) {
+                std::cerr << "CSV output path must not be empty.\n";
+                return 1;
+            }
+
+            continue;
+        }
 
         if (std::string(argv[i]) == "--start") {
             startTime = argv[i + 1];
@@ -216,5 +245,32 @@ int main(int argc, char* argv[]) {
         std::cout << "The log file is empty.\n";
     }
 
+    if (!csvPath.empty()) {
+        std::ofstream csvFile(csvPath);
+
+        if (!csvFile.is_open()) {
+            std::cerr << "Could not open CSV output: " << csvPath << '\n';
+            return 1;
+        }
+
+        csvFile << "type,label,count\n";
+        csvFile << "severity,INFO," << infoCount << '\n';
+        csvFile << "severity,WARN," << warnCount << '\n';
+        csvFile << "severity,ERROR," << errorCount << '\n';
+        csvFile << "input,malformed," << malformedCount << '\n';
+
+        for (const auto& item : sortedErrors) {
+            csvFile << "error_message,"
+                    << escapeCsv(item.first) << ','
+                    << item.second << '\n';
+        }
+
+        csvFile.close();
+
+        if (!csvFile) {
+            std::cerr << "Failed to write CSV output: " << csvPath << '\n';
+            return 1;
+        }
+    }
     return 0;
 }

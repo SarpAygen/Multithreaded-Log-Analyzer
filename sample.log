@@ -9,3 +9,4 @@ this is not a valid log entry
 2026-11-05 14:34:00 ERROR Database connection failed
 2026-11-05 14:35:00 ERROR Failed to open configuration file
 2026-11-05 14:36:00 ERROR Failed to open configuration file
+2026-11-05 14:37:00 ERROR Failed to open "config", retrying
