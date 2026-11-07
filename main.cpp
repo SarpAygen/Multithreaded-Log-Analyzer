@@ -69,11 +69,24 @@ bool parseLogEntry(const std::string& line, LogEntry& entry) {
     return true;
 }
 
-int main() {
-    std::ifstream logFile("sample.log");
+int main(int argc, char* argv[]) {
+
+    if (argc == 2 && std::string(argv[1]) == "--help") {
+        std::cout << "Usage: log_analyzer.exe <log-file>\n";
+        std::cout << "Read a log file and summarize valid entries and errors.\n";
+        return 0;
+    }
+
+    if (argc != 2) {
+        std::cerr << "Usage: log_analyzer.exe <log-file>\n";
+        return 1;
+    }
+
+    std::string filePath = argv[1];
+    std::ifstream logFile(filePath);
 
     if (!logFile.is_open()) {
-        std::cerr << "Could not open sample.log\n";
+        std::cerr << "Could not open " << filePath << '\n';
         return 1;
     }
 
